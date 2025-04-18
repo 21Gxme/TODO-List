@@ -204,6 +204,8 @@ CREATE POLICY "Users can delete their own todos" ON "Todo"
 
 ### Supabase Setup
 
+(Or you can use my  [environment variables](#environment-variables) but I'm not sure if it will work or not).
+
 1. Create a new Supabase project
 2. Run the SQL commands from the [Database Schema](#database-schema) section in the Supabase SQL editor
 3. Create a storage bucket named `todo-images` with public access
@@ -272,7 +274,7 @@ This application follows a layered architecture pattern to maintain separation o
 
 Copy `.env.example` to `.env.local` and fill in the following variables:
 
-```javascript
+```bash
 NEXT_PUBLIC_SUPABASE_URL=https://smecoqiiszytblspemzw.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtZWNvcWlpc3p5dGJsc3BlbXp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4Nzg2MTksImV4cCI6MjA2MDQ1NDYxOX0.I89d1yzSl2NgKbrk6kJE7z7Oe93mWrWLPchao4GL4ww
 ```
