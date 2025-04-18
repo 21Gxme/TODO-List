@@ -161,7 +161,7 @@ CREATE POLICY "Users can delete their own todos" ON "Todo"
 
 ## GitHub Repository
 
-[GitHub Repository Link](https://github.com/yourusername/todo-app)
+[GitHub Repository Link](https://github.com/21Gxme/TODO-List.git)
 
 ### Prerequisites
 
@@ -174,7 +174,7 @@ CREATE POLICY "Users can delete their own todos" ON "Todo"
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/todo-app.git
+   git clone https://github.com/21Gxme/TODO-List.git
    cd todo-list
    ```
 
@@ -273,6 +273,6 @@ This application follows a layered architecture pattern to maintain separation o
 Copy `.env.example` to `.env.local` and fill in the following variables:
 
 ```javascript
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_SUPABASE_URL=https://smecoqiiszytblspemzw.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtZWNvcWlpc3p5dGJsc3BlbXp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4Nzg2MTksImV4cCI6MjA2MDQ1NDYxOX0.I89d1yzSl2NgKbrk6kJE7z7Oe93mWrWLPchao4GL4ww
 ```
