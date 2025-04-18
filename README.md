@@ -210,7 +210,7 @@ CREATE POLICY "Users can delete their own todos" ON "Todo"
 4. Set up authentication providers in the Supabase dashboard
 5. Copy the Supabase URL and anon key to your environment variables
 
-(Or you can use my .env.local but I'm not sure it will work or not).
+(Or you can use my .env.local)
 
 ## Code Explanation
 
@@ -274,7 +274,9 @@ This application follows a layered architecture pattern to maintain separation o
 
 Copy `.env.example` to `.env.local` and fill in the following variables:
 
-```bash
+(I already provided the .env.local via private comment in google classroom.)
+
+```bash)
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
