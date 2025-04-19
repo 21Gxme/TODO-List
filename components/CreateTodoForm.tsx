@@ -13,11 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertCircle, ImagePlus, Loader2, Plus, X } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
+import DatePicker from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
 
 export default function CreateTodoForm() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [status, setStatus] = useState("Todo")
+  const [dueDate, setDueDate] = useState<Date | null>(null)
   const [image, setImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -44,6 +47,7 @@ export default function CreateTodoForm() {
         title,
         description,
         status,
+        due_date: dueDate ? dueDate.toISOString() : null,
       })
 
       if (insertError) {
@@ -88,6 +92,7 @@ export default function CreateTodoForm() {
       setTitle("")
       setDescription("")
       setStatus("Todo")
+      setDueDate(null)
       setImage(null)
       setImagePreview(null)
 
@@ -187,20 +192,50 @@ export default function CreateTodoForm() {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="status" className="text-sm font-medium">
-            Status
-          </Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger id="status" className="border-input focus:ring-primary transition-all">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todo">Todo</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="Done">Done</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="status" className="text-sm font-medium">
+              Status
+            </Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger id="status" className="border-input focus:ring-primary transition-all">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todo">Todo</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Done">Done</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="due-date" className="text-sm font-medium">
+              Due Date
+            </Label>
+            <div className="relative">
+              <DatePicker
+                selected={dueDate}
+                onChange={(date) => setDueDate(date)}
+                dateFormat="MMM d, yyyy"
+                placeholderText="Select due date"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                wrapperClassName="w-full"
+                isClearable
+              />
+              {dueDate && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setDueDate(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2">
