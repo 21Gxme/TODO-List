@@ -15,9 +15,11 @@
     "@radix-ui/react-slot": "^1.1.0",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@types/react-datepicker": "^4.19.5",
     "autoprefixer": "10.4.20",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.7.4",
     "lucide-react": "^0.468.0",
     "next": "latest",
     "next-themes": "^0.4.3",
@@ -25,8 +27,7 @@
     "react": "19.0.0",
     "react-datepicker": "^8.3.0",
     "react-day-picker": "^9.6.7",
-    "react-dom": "19.0.0",
-    "@types/react-datepicker": "^4.19.5"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@types/node": "22.10.2",

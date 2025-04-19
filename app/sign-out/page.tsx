@@ -21,7 +21,7 @@ export default function SignOutPage() {
         }
 
         // Redirect to the login page after successful sign-out
-        router.push("/protected/sign-in")
+        router.push("/")
       } catch (err) {
         console.error("Error signing out:", err)
         setError("An error occurred while signing out. Please try again.")

@@ -27,10 +27,10 @@ A modern, full-stack Todo application built with Next.js and Supabase, featuring
 
 - **User Authentication**: Secure sign-up, sign-in, and password reset functionality
 - **CRUD Operations**: Create, read, update, and delete todos
-- **Real-time Updates**: Changes to todos are reflected in real-time
 - **Image Uploads**: Attach images to todos
 - **Responsive Design**: Works on desktop and mobile devices
 - **Status Management**: Track todo status (Todo, In Progress, Done)
+- **Filtering**: Filter todos by status
 
 ## Framework
 
@@ -45,8 +45,8 @@ This project is built with the following technologies:
 
 ### Project Structure
 
-```bash
-todo-app/
+```plaintext
+todo-lists/
 ├── .next/                  # Next.js build output
 ├── app/                    # Next.js App Router
 │   ├── (auth-pages)/       # Authentication pages group
@@ -67,25 +67,16 @@ todo-app/
 │   ├── layout.tsx          # Root layout
 │   └── page.tsx            # Home page
 ├── components/             # React components
-│   ├── tutorial/           # Tutorial components
-│   ├── typography/         # Typography components
-│   ├── ui/                 # UI components (shadcn)
-│   ├── CreateTodoForm.tsx  # Form for creating todos
-│   ├── deploy-button.tsx   # Deployment button
-│   ├── env-var-warning.tsx # Environment variable warning
-│   ├── form-message.tsx    # Form message component
-│   ├── header-auth.tsx     # Authentication header
-│   ├── hero.tsx            # Hero section
-│   ├── next-logo.tsx       # Next.js logo
-│   ├── submit-button.tsx   # Submit button component
-│   ├── supabase-logo.tsx   # Supabase logo
-│   ├── theme-switcher.tsx  # Theme switcher
-│   ├── TodoItem.tsx        # Todo item component
-│   └── TodoList.tsx        # Todo list component
 ├── hooks/                  # Custom React hooks
 ├── lib/                    # Utility functions
 ├── node_modules/           # Node.js dependencies
 ├── utils/                  # Utility functions
+│   └── supabase/           # Supabase utilities
+│       ├── check-env-vars.ts # Environment variable validation
+│       ├── client.ts       # Supabase client-side SDK
+│       ├── middleware.ts   # Supabase middleware
+│       ├── server.ts       # Supabase server-side SDK
+│       └── utils.ts        # Supabase utility functions
 ├── .env.example            # Example environment variables
 ├── .env.local              # Local environment variables
 ├── .gitignore              # Git ignore file
@@ -210,7 +201,7 @@ CREATE POLICY "Users can delete their own todos" ON "Todo"
 4. Set up authentication providers in the Supabase dashboard
 5. Copy the Supabase URL and anon key to your environment variables
 
-(Or you can use my .env.local)
+(Or you can use my key in .env.local file. I already provided it via private comment in google classroom.)
 
 ## Code Explanation
 
@@ -231,7 +222,8 @@ This application follows a layered architecture pattern to maintain separation o
    - Manages authentication flows and form submissions
 
 3. **Data Access Layer**
-   - Supabase client in `utils/` directory
+   - Supabase client in `utils/supabase/client.ts`
+   - Supabase server in `utils/supabase/server.ts`
    - Handles database operations and storage interactions
    - Manages real-time subscriptions
 
@@ -239,6 +231,37 @@ This application follows a layered architecture pattern to maintain separation o
    - Configuration in `next.config.ts`
    - Environment variables in `.env.local`
    - TypeScript configuration in `tsconfig.json`
+  
+```mermaid
+flowchart TD
+ subgraph subGraph0["Presentation Layer"]
+        UI["UI Components<br>(components/)"]
+        Pages["Next.js Pages<br>(app/)"]
+  end
+ subgraph subGraph1["Application Layer"]
+        ServerActions["Server Actions<br>(app/actions.ts)"]
+        AuthCallbacks["Auth Callbacks<br>(app/auth/callback/)"]
+        Middleware["Middleware<br>(middleware.ts)"]
+  end
+ subgraph subGraph2["Data Access Layer"]
+        SupabaseClient["Supabase <br>(utils/)"]
+  end
+ subgraph subGraph3["Infrastructure Layer"]
+        Config["Configuration<br>(next.config.ts)"]
+        Env["Environment Variables<br>(.env.local)"]
+        TypeScript["TypeScript Config<br>(tsconfig.json)"]
+  end
+ subgraph subGraph4["External Services"]
+        SupabaseAuth["Supabase Auth"]
+        SupabaseDB["Supabase Database"]
+        SupabaseStorage["Supabase Storage"]
+  end
+    UI --> Pages
+    Pages --> ServerActions & AuthCallbacks & Middleware
+    ServerActions --> SupabaseClient
+    AuthCallbacks --> SupabaseClient
+    SupabaseClient --> Config & Env & SupabaseAuth & SupabaseDB & SupabaseStorage
+```
 
 ### Key Design Decisions
 
@@ -276,7 +299,7 @@ Copy `.env.example` to `.env.local` and fill in the following variables:
 
 (I already provided the .env.local via private comment in google classroom.)
 
-```bash)
+```plaintext
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
