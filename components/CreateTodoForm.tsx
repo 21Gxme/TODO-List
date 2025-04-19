@@ -90,6 +90,11 @@ export default function CreateTodoForm() {
       setStatus("Todo")
       setImage(null)
       setImagePreview(null)
+
+      // Refresh the page after a short delay to allow the toast to be seen
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000) // 1 second delay
     } catch (err) {
       // Handle any errors
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred"
@@ -139,13 +144,13 @@ export default function CreateTodoForm() {
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold flex items-center gap-2">
-        <Plus className="h-5 w-5 text-primary" />
+    <div className="space-y-4 sm:space-y-6">
+      <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
+        <Plus className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
         Create a new todo
       </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
         {error && (
           <Alert variant="destructive" className="animate-in fade-in-50">
             <AlertCircle className="h-4 w-4" />
@@ -205,15 +210,19 @@ export default function CreateTodoForm() {
           <div className="text-xs text-muted-foreground mb-2">Maximum size: 5MB</div>
           {imagePreview ? (
             <div className="relative mt-2 rounded-md overflow-hidden border border-input shadow-sm">
-              <img src={imagePreview || "/placeholder.svg"} alt="Preview" className="w-full h-48 object-cover" />
+              <img
+                src={imagePreview || "/placeholder.svg"}
+                alt="Preview"
+                className="w-full h-32 sm:h-48 object-cover"
+              />
               <Button
                 type="button"
                 variant="destructive"
                 size="icon"
-                className="absolute top-2 right-2 h-8 w-8 rounded-full shadow-md opacity-90 hover:opacity-100 transition-opacity"
+                className="absolute top-2 right-2 h-7 w-7 sm:h-8 sm:w-8 rounded-full shadow-md opacity-90 hover:opacity-100 transition-opacity"
                 onClick={removeImage}
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           ) : (
@@ -236,11 +245,11 @@ export default function CreateTodoForm() {
         <Button
           type="submit"
           disabled={isSubmitting || !title.trim()}
-          className="w-full transition-all hover:shadow-md hover:shadow-primary/10"
+          className="w-full py-1.5 sm:py-2 transition-all hover:shadow-md hover:shadow-primary/10"
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
               Creating...
             </>
           ) : (

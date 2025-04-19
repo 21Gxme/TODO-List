@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Card } from "@/components/ui/card"
 
 export default async function TodosPage() {
   const supabase = await createClient()
@@ -30,8 +31,9 @@ export default async function TodosPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Header - Responsive for all screen sizes */}
       <header className="border-b sticky top-0 z-10 bg-background">
-        <div className="container flex h-16 items-center justify-between py-4">
+        <div className="container flex h-16 items-center justify-between py-4 px-4 md:px-6">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
               <svg
@@ -56,24 +58,39 @@ export default async function TodosPage() {
             <Avatar className="h-8 w-8 border border-border">
               <AvatarFallback className="bg-primary/10 text-primary text-sm">{userInitials}</AvatarFallback>
             </Avatar>
-            <Button asChild variant="ghost" size="sm" className="gap-2">
-              <Link href="/sign-out">
+            <Button asChild variant="ghost" size="sm" className="gap-2 hidden sm:flex">
+              <Link href="/signout">
                 <LogOut className="h-4 w-4" />
                 <span>Sign out</span>
+              </Link>
+            </Button>
+            {/* Mobile-only sign out button */}
+            <Button asChild variant="ghost" size="icon" className="sm:hidden">
+              <Link href="/signout">
+                <LogOut className="h-4 w-4" />
               </Link>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex">
-        <div className="w-[350px] border-r p-6 shrink-0">
-          <CreateTodoForm />
+      {/* Main content - Responsive layout */}
+      <div className="container px-4 md:px-6 py-6">
+        {/* Mobile: Form at top, Desktop: Form on left and list on right */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Create Todo Form - Top on mobile, Left on desktop */}
+          <div className="w-full lg:w-[350px] lg:shrink-0">
+            <Card className="p-4 sm:p-6 shadow-sm lg:sticky lg:top-24">
+              <CreateTodoForm />
+            </Card>
+          </div>
+
+          {/* Todo list - Below form on mobile, Right side on desktop */}
+          <div className="flex-1">
+            <TodoList initialTodos={todos || []} />
+          </div>
         </div>
-        <div className="flex-1 p-6">
-          <TodoList initialTodos={todos || []} />
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

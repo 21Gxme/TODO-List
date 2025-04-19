@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { Pencil, Trash2, Check, X, Loader2, ImagePlus, Clock } from "lucide-react"
+import { Pencil, Trash2, Check, X, Loader2, ImagePlus, Clock, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +22,9 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
   const [isLoading, setIsLoading] = useState(false)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [isImageLoading, setIsImageLoading] = useState(false)
+  const [newImage, setNewImage] = useState<File | null>(null)
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const supabase = createClient()
@@ -30,21 +35,40 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
       setIsImageLoading(true)
 
       try {
-        const { data, error } = await supabase.storage.from("todo-images").createSignedUrl(todo.id, 60 * 60) // 1 hour expiry
+        // First, check if the image exists
+        const { data: fileData, error: fileError } = await supabase.storage.from("todo-images").list("", {
+          limit: 1,
+          search: todo.id,
+        })
 
-        if (error) {
-          // Instead of setting an error, just log it and continue
+        if (fileError) {
+          console.error("Error checking if image exists:", fileError)
+          setIsImageLoading(false)
+          return
+        }
+
+        // If no files found or empty array, there's no image
+        if (!fileData || fileData.length === 0) {
           console.log("No image found for todo:", todo.id)
           setIsImageLoading(false)
           return
         }
 
+        // If image exists, get the URL
+        const { data, error } = await supabase.storage.from("todo-images").createSignedUrl(todo.id, 60 * 60) // 1 hour expiry
+
+        if (error) {
+          console.error("Error creating signed URL:", error)
+          setIsImageLoading(false)
+          return
+        }
+
         if (data) {
+          console.log("Image URL fetched successfully:", data.signedUrl)
           setImageUrl(data.signedUrl)
         }
       } catch (error) {
-        console.error("Error fetching image:", error)
-        // Don't set an error, just log it
+        console.error("Error in fetchImage:", error)
       } finally {
         setIsImageLoading(false)
       }
@@ -52,6 +76,43 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
 
     fetchImage()
   }, [todo.id, supabase])
+
+  const handleFileSelect = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Image too large",
+          description: "Image size exceeds 5MB limit. Please choose a smaller image.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setNewImage(file)
+
+      // Create a preview URL
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setNewImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removeImage = () => {
+    setNewImage(null)
+    setNewImagePreview(null)
+    setImageUrl(null) // This indicates we want to remove the existing image
+  }
 
   const updateTodoStatus = async (newStatus: string) => {
     setIsLoading(true)
@@ -68,6 +129,11 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
         title: "Status updated",
         description: `Todo status changed to ${newStatus}`,
       })
+
+      // Reload the page after a short delay to allow the toast to be seen
+      setTimeout(() => {
+        window.location.reload()
+      }, 250)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred"
       console.error("Error updating todo status:", errorMessage)
@@ -85,6 +151,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     setIsLoading(true)
 
     try {
+      // Update todo data in the database
       const { error } = await supabase
         .from("Todo")
         .update({
@@ -98,11 +165,79 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
         throw new Error(`Failed to update todo: ${error.message}`)
       }
 
+      // Handle image changes
+      if (newImage) {
+        console.log("Uploading new image:", newImage.name)
+
+        // First, try to delete any existing image (this ensures clean replacement)
+        try {
+          await supabase.storage.from("todo-image").remove([todo.id])
+          console.log("Existing image removed successfully")
+        } catch (removeError) {
+          console.log("No existing image to remove or error removing:", removeError)
+          // Continue with upload even if removal fails
+        }
+
+        // Now upload the new image
+        const { error: uploadError } = await supabase.storage.from("todo-images").upload(todo.id, newImage, {
+          cacheControl: "3600",
+          upsert: true, // This will overwrite the existing image
+        })
+
+        if (uploadError) {
+          console.error("Error uploading new image:", uploadError)
+          toast({
+            title: "Image upload failed",
+            description: "Your todo was updated, but we couldn't upload the new image.",
+            variant: "destructive",
+          })
+        } else {
+          console.log("New image uploaded successfully")
+          toast({
+            title: "Todo updated",
+            description: "Your todo and image were updated successfully.",
+          })
+        }
+      } else if (imageUrl === null && todo.id) {
+        // User wants to remove the image
+        console.log("Removing existing image")
+        try {
+          const { error: removeError } = await supabase.storage.from("todo-images").remove([todo.id])
+
+          if (removeError) {
+            console.error("Error removing image:", removeError)
+            toast({
+              title: "Image removal failed",
+              description: "Your todo was updated, but we couldn't remove the image.",
+              variant: "destructive",
+            })
+          } else {
+            console.log("Image removed successfully")
+            toast({
+              title: "Todo updated",
+              description: "Your todo was updated and image was removed.",
+            })
+          }
+        } catch (removeError) {
+          console.error("Exception removing image:", removeError)
+        }
+      } else {
+        // No image changes
+        toast({
+          title: "Todo updated",
+          description: "Your changes have been saved.",
+        })
+      }
+
+      // Reset states
       setIsEditing(false)
-      toast({
-        title: "Todo updated",
-        description: "Your changes have been saved",
-      })
+      setNewImage(null)
+      setNewImagePreview(null)
+
+      // Reload the page to reflect all changes
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred"
       console.error("Error updating todo:", errorMessage)
@@ -120,19 +255,13 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     setIsLoading(true)
 
     try {
-      // Delete the image from storage if it exists
-      if (imageUrl) {
-        const { error: storageError } = await supabase.storage.from("todo-images").remove([todo.id])
-
-        if (storageError) {
-          console.error("Error deleting image:", storageError)
-          // Continue with todo deletion even if image deletion fails
-          toast({
-            title: "Warning",
-            description: "Todo deleted but failed to remove the associated image",
-            variant: "default",
-          })
-        }
+      // First try to delete the image if it exists
+      try {
+        await supabase.storage.from("todo-images").remove([todo.id])
+        console.log("Image deleted successfully during todo deletion")
+      } catch (storageError) {
+        console.log("No image to delete or error deleting image:", storageError)
+        // Continue with todo deletion even if image deletion fails
       }
 
       // Delete the todo
@@ -231,20 +360,48 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
             </SelectContent>
           </Select>
 
-          {imageUrl && (
-            <div className="relative aspect-video w-full rounded-md overflow-hidden border shadow-sm">
-              <img src={imageUrl || "/placeholder.svg"} alt={title} className="w-full h-full object-cover" />
-            </div>
-          )}
-
-          {!imageUrl && !isImageLoading && (
-            <div className="relative aspect-video w-full rounded-md overflow-hidden border shadow-sm bg-muted/10 flex items-center justify-center">
-              <div className="text-muted-foreground text-sm flex flex-col items-center">
-                <ImagePlus className="h-8 w-8 mb-2 opacity-20" />
-                <span>No image attached</span>
+          {/* Image Section with Edit Controls */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Image</span>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleFileSelect} className="text-xs h-8">
+                  <ImagePlus className="h-3.5 w-3.5 mr-1" />
+                  {newImagePreview || imageUrl ? "Change Image" : "Add Image"}
+                </Button>
+                {(newImagePreview || imageUrl) && (
+                  <Button type="button" variant="destructive" size="sm" onClick={removeImage} className="text-xs h-8">
+                    <X className="h-3.5 w-3.5 mr-1" />
+                    Remove
+                  </Button>
+                )}
               </div>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
             </div>
-          )}
+
+            {/* Image Preview */}
+            {newImagePreview ? (
+              <div className="relative aspect-video w-full rounded-md overflow-hidden border shadow-sm">
+                <img src={newImagePreview || "/placeholder.svg"} alt={title} className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">New Image</div>
+              </div>
+            ) : imageUrl ? (
+              <div className="relative aspect-video w-full rounded-md overflow-hidden border shadow-sm">
+                <img src={imageUrl || "/placeholder.svg"} alt={title} className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                  Current Image
+                </div>
+              </div>
+            ) : (
+              <div className="relative aspect-video w-full rounded-md overflow-hidden border shadow-sm bg-muted/10 flex items-center justify-center">
+                <div className="text-muted-foreground text-sm flex flex-col items-center">
+                  <Upload className="h-8 w-8 mb-2 opacity-20" />
+                  <span>No image attached</span>
+                  <span className="text-xs mt-1">Click "Add Image" to upload</span>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" />
@@ -252,7 +409,27 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
           </div>
         </CardContent>
         <CardFooter className="flex justify-end gap-2 p-4 bg-muted/10 border-t">
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={isLoading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setIsEditing(false)
+              setNewImage(null)
+              setNewImagePreview(null)
+              // Restore the original image URL if it was temporarily set to null
+              if (imageUrl === null) {
+                // Re-fetch the image URL
+                const fetchImage = async () => {
+                  const { data } = await supabase.storage.from("todo-images").createSignedUrl(todo.id, 60 * 60)
+                  if (data) {
+                    setImageUrl(data.signedUrl)
+                  }
+                }
+                fetchImage()
+              }
+            }}
+            disabled={isLoading}
+          >
             <X className="h-4 w-4 mr-1" /> Cancel
           </Button>
           <Button size="sm" onClick={updateTodo} disabled={isLoading} className="bg-primary hover:bg-primary/90">
@@ -287,7 +464,10 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
             src={imageUrl || "/placeholder.svg"}
             alt={todo.title}
             className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
-            onError={() => setImageUrl(null)}
+            onError={(e) => {
+              console.error("Error loading image:", e)
+              setImageUrl(null)
+            }}
           />
         </div>
       )}
