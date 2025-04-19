@@ -59,14 +59,14 @@ export default async function TodosPage() {
               <AvatarFallback className="bg-primary/10 text-primary text-sm">{userInitials}</AvatarFallback>
             </Avatar>
             <Button asChild variant="ghost" size="sm" className="gap-2 hidden sm:flex">
-              <Link href="/signout">
+              <Link href="/sign-out">
                 <LogOut className="h-4 w-4" />
                 <span>Sign out</span>
               </Link>
             </Button>
             {/* Mobile-only sign out button */}
             <Button asChild variant="ghost" size="icon" className="sm:hidden">
-              <Link href="/signout">
+              <Link href="/sign-out">
                 <LogOut className="h-4 w-4" />
               </Link>
             </Button>
