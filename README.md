@@ -2,7 +2,7 @@
 
 A modern, full-stack Todo application built with Next.js and Supabase, featuring user authentication, real-time updates, image uploads, and a responsive UI.
 
-This is my deploy website [Todo-list](https://todo-list-nine-sable.vercel.app)
+This is my website [Todo-list](https://todo-list-nine-sable.vercel.app)
 
 ## Table of Contents
 
@@ -112,6 +112,7 @@ This project uses **Supabase** as the backend, which is built on top of PostgreS
    - `description`: Text
    - `status`: Text ('Todo', 'In Progress', 'Done')
    - `created_at`: Timestamp
+   - `due_date`: Date
 
 #### Storage Buckets
 
@@ -129,7 +130,8 @@ CREATE TABLE "Todo" (
   title TEXT NOT NULL,
   description TEXT,
   status TEXT NOT NULL DEFAULT 'Todo',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  due_date DATE
 );
 
 -- Row Level Security Policies

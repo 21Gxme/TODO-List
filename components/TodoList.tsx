@@ -14,6 +14,7 @@ export type Todo = {
   description: string
   status: string
   created_at: string
+  due_date: string | null
 }
 
 export default function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
