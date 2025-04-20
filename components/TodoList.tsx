@@ -24,7 +24,6 @@ export default function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
   const supabase = createClient()
 
   useEffect(() => {
-    // Set up real-time subscription to todos
     const channel = supabase
       .channel("todos-changes")
       .on(
@@ -35,7 +34,6 @@ export default function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
           table: "Todo",
         },
         async (payload) => {
-          // Refresh the todos list when changes occur
           const { data } = await supabase.from("Todo").select("*").order("created_at", { ascending: false })
 
           if (data) {
@@ -50,7 +48,6 @@ export default function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
     }
   }, [supabase])
 
-  // Apply filters whenever todos or statusFilter changes
   useEffect(() => {
     console.log("Filtering todos with status:", statusFilter)
     console.log("Current todos:", todos)
@@ -65,18 +62,15 @@ export default function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
     console.log("Filtered todos:", filteredTodos)
   }, [todos, statusFilter])
 
-  // Handle todo deletion locally
   const handleDelete = (id: string) => {
     setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id))
   }
 
-  // Handle status filter change
   const handleStatusFilterChange = (status: string) => {
     console.log("Setting status filter to:", status)
     setStatusFilter(status)
   }
 
-  // Count todos by status
   const todoCount = todos.filter((todo) => todo.status === "Todo").length
   const inProgressCount = todos.filter((todo) => todo.status === "In Progress").length
   const doneCount = todos.filter((todo) => todo.status === "Done").length

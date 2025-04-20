@@ -2,9 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { createClient } from "@/utils/supabase/client"
-import { v4 as uuidv4 } from "uuid"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
+import { createTodoAction } from "@/app/actions"
 
 export default function CreateTodoForm() {
   const [title, setTitle] = useState("")
@@ -26,8 +25,8 @@ export default function CreateTodoForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
-
-  const supabase = createClient()
+  const formRef = useRef<HTMLFormElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,49 +37,34 @@ export default function CreateTodoForm() {
     setError(null)
 
     try {
-      // Generate a UUID for the todo
-      const todoId = uuidv4()
+      // Create FormData object
+      const formData = new FormData()
+      formData.append("title", title)
+      formData.append("description", description)
+      formData.append("status", status)
 
-      // Create the todo in the database
-      const { error: insertError } = await supabase.from("Todo").insert({
-        id: todoId,
-        title,
-        description,
-        status,
-        due_date: dueDate ? dueDate.toISOString() : null,
-      })
-
-      if (insertError) {
-        throw new Error(`Failed to create todo: ${insertError.message}`)
+      if (dueDate) {
+        formData.append("dueDate", dueDate.toISOString())
       }
 
-      // Upload image if one was selected
       if (image) {
-        // Upload directly using the todo ID as the file name
-        const { error: uploadError } = await supabase.storage.from("todo-images").upload(todoId, image, {
-          cacheControl: "3600",
-          upsert: true,
+        formData.append("image", image)
+      }
+
+      // Call the server action
+      const result = await createTodoAction(formData)
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      // Handle success with warning
+      if (result.warning) {
+        toast({
+          title: "Todo created with warning",
+          description: result.warning,
+          variant: "default",
         })
-
-        if (uploadError) {
-          // Log the error
-          console.error("Error uploading image:", uploadError)
-
-          // Show a toast notification about the image upload issue
-          toast({
-            title: "Image upload failed",
-            description:
-              "Your todo was created, but we couldn't upload the image. You can try again by editing the todo.",
-            variant: "destructive",
-          })
-
-          // We don't throw here because we want to keep the todo even if the image upload fails
-        } else {
-          toast({
-            title: "Todo created",
-            description: "Your todo was created successfully with the image.",
-          })
-        }
       } else {
         toast({
           title: "Todo created",
@@ -95,13 +79,15 @@ export default function CreateTodoForm() {
       setDueDate(null)
       setImage(null)
       setImagePreview(null)
+      if (formRef.current) {
+        formRef.current.reset()
+      }
 
-      // Refresh the page after a short delay to allow the toast to be seen
+
       setTimeout(() => {
         window.location.reload()
-      }, 1000) // 1 second delay
+      }, 500) // 0.5 second delay
     } catch (err) {
-      // Handle any errors
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred"
       console.error("Error creating todo:", errorMessage)
       setError(errorMessage)
@@ -120,7 +106,6 @@ export default function CreateTodoForm() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
 
-      // Check file size (limit to 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError("Image size exceeds 5MB limit. Please choose a smaller image.")
         toast({
@@ -134,7 +119,6 @@ export default function CreateTodoForm() {
       setImage(file)
       setError(null)
 
-      // Create a preview URL
       const reader = new FileReader()
       reader.onloadend = () => {
         setImagePreview(reader.result as string)
@@ -146,6 +130,9 @@ export default function CreateTodoForm() {
   const removeImage = () => {
     setImage(null)
     setImagePreview(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
   }
 
   return (
@@ -155,7 +142,7 @@ export default function CreateTodoForm() {
         Create a new todo
       </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
         {error && (
           <Alert variant="destructive" className="animate-in fade-in-50">
             <AlertCircle className="h-4 w-4" />
@@ -170,6 +157,7 @@ export default function CreateTodoForm() {
           </Label>
           <Input
             id="title"
+            name="title"
             placeholder="What needs to be done?"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -184,6 +172,7 @@ export default function CreateTodoForm() {
           </Label>
           <Textarea
             id="description"
+            name="description"
             placeholder="Add details about this todo"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -197,7 +186,7 @@ export default function CreateTodoForm() {
             <Label htmlFor="status" className="text-sm font-medium">
               Status
             </Label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={setStatus} name="status">
               <SelectTrigger id="status" className="border-input focus:ring-primary transition-all">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
@@ -265,7 +254,7 @@ export default function CreateTodoForm() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => document.getElementById("image")?.click()}
+                onClick={() => fileInputRef.current?.click()}
                 className="transition-all hover:bg-primary/5 hover:text-primary hover:border-primary"
               >
                 <ImagePlus className="h-4 w-4 mr-2" />
@@ -274,7 +263,15 @@ export default function CreateTodoForm() {
               {image && <span className="text-sm text-muted-foreground">{image.name}</span>}
             </div>
           )}
-          <Input id="image" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+          <Input
+            id="image"
+            name="image"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="hidden"
+            ref={fileInputRef}
+          />
         </div>
 
         <Button

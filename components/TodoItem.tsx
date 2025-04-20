@@ -33,13 +33,11 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
 
   const supabase = createClient()
 
-  // Fetch image URL when component mounts
   useEffect(() => {
     const fetchImage = async () => {
       setIsImageLoading(true)
 
       try {
-        // First, check if the image exists
         const { data: fileData, error: fileError } = await supabase.storage.from("todo-images").list("", {
           limit: 1,
           search: todo.id,
@@ -51,14 +49,12 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
           return
         }
 
-        // If no files found or empty array, there's no image
         if (!fileData || fileData.length === 0) {
           console.log("No image found for todo:", todo.id)
           setIsImageLoading(false)
           return
         }
 
-        // If image exists, get the URL
         const { data, error } = await supabase.storage.from("todo-images").createSignedUrl(todo.id, 60 * 60) // 1 hour expiry
 
         if (error) {
@@ -91,7 +87,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
 
-      // Check file size (limit to 5MB)
+      // Check file size
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "Image too large",
@@ -103,7 +99,6 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
 
       setNewImage(file)
 
-      // Create a preview URL
       const reader = new FileReader()
       reader.onloadend = () => {
         setNewImagePreview(reader.result as string)
@@ -115,7 +110,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
   const removeImage = () => {
     setNewImage(null)
     setNewImagePreview(null)
-    setImageUrl(null) // This indicates we want to remove the existing image
+    setImageUrl(null)
   }
 
   const updateTodoStatus = async (newStatus: string) => {
@@ -134,7 +129,6 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
         description: `Todo status changed to ${newStatus}`,
       })
 
-      // Reload the page after a short delay to allow the toast to be seen
       setTimeout(() => {
         window.location.reload()
       }, 250)
@@ -155,7 +149,6 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     setIsLoading(true)
 
     try {
-      // Update todo data in the database
       const { error } = await supabase
         .from("Todo")
         .update({
@@ -174,19 +167,16 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
       if (newImage) {
         console.log("Uploading new image:", newImage.name)
 
-        // First, try to delete any existing image (this ensures clean replacement)
         try {
           await supabase.storage.from("todo-image").remove([todo.id])
           console.log("Existing image removed successfully")
         } catch (removeError) {
           console.log("No existing image to remove or error removing:", removeError)
-          // Continue with upload even if removal fails
         }
 
-        // Now upload the new image
         const { error: uploadError } = await supabase.storage.from("todo-images").upload(todo.id, newImage, {
           cacheControl: "3600",
-          upsert: true, // This will overwrite the existing image
+          upsert: true,
         })
 
         if (uploadError) {
