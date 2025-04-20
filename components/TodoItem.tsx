@@ -16,6 +16,7 @@ import { format, parseISO } from "date-fns"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 import type { Todo } from "./TodoList"
+import { updateTodoStatusAction, updateTodoAction, deleteTodoAction } from "@/app/actions"
 
 export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id: string) => void }) {
   const [isEditing, setIsEditing] = useState(false)
@@ -28,7 +29,9 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
   const [isImageLoading, setIsImageLoading] = useState(false)
   const [newImage, setNewImage] = useState<File | null>(null)
   const [newImagePreview, setNewImagePreview] = useState<string | null>(null)
+  const [shouldDeleteImage, setShouldDeleteImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const { toast } = useToast()
 
   const supabase = createClient()
@@ -87,7 +90,6 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
 
-      // Check file size
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "Image too large",
@@ -98,6 +100,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
       }
 
       setNewImage(file)
+      setShouldDeleteImage(false)
 
       const reader = new FileReader()
       reader.onloadend = () => {
@@ -110,23 +113,27 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
   const removeImage = () => {
     setNewImage(null)
     setNewImagePreview(null)
-    setImageUrl(null)
+    setShouldDeleteImage(true)
   }
 
   const updateTodoStatus = async (newStatus: string) => {
     setIsLoading(true)
 
     try {
-      const { error } = await supabase.from("Todo").update({ status: newStatus }).eq("id", todo.id)
+      const formData = new FormData()
+      formData.append("todoId", todo.id)
+      formData.append("status", newStatus)
 
-      if (error) {
-        throw new Error(`Failed to update status: ${error.message}`)
+      const result = await updateTodoStatusAction(formData)
+
+      if (result.error) {
+        throw new Error(result.error)
       }
 
       setStatus(newStatus)
       toast({
         title: "Status updated",
-        description: `Todo status changed to ${newStatus}`,
+        description: result.message || `Todo status changed to ${newStatus}`,
       })
 
       setTimeout(() => {
@@ -149,85 +156,45 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     setIsLoading(true)
 
     try {
-      const { error } = await supabase
-        .from("Todo")
-        .update({
-          title,
-          description,
-          status,
-          due_date: dueDate ? dueDate.toISOString() : null,
-        })
-        .eq("id", todo.id)
+      const formData = new FormData()
+      formData.append("todoId", todo.id)
+      formData.append("title", title)
+      formData.append("description", description)
+      formData.append("status", status)
 
-      if (error) {
-        throw new Error(`Failed to update todo: ${error.message}`)
+      if (dueDate) {
+        formData.append("dueDate", dueDate.toISOString())
       }
 
-      // Handle image changes
+      formData.append("shouldDeleteImage", shouldDeleteImage.toString())
+
       if (newImage) {
-        console.log("Uploading new image:", newImage.name)
+        formData.append("image", newImage)
+      }
 
-        try {
-          await supabase.storage.from("todo-image").remove([todo.id])
-          console.log("Existing image removed successfully")
-        } catch (removeError) {
-          console.log("No existing image to remove or error removing:", removeError)
-        }
+      const result = await updateTodoAction(formData)
 
-        const { error: uploadError } = await supabase.storage.from("todo-images").upload(todo.id, newImage, {
-          cacheControl: "3600",
-          upsert: true,
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      if (result.warning) {
+        toast({
+          title: "Todo updated with warning",
+          description: result.warning,
+          variant: "default",
         })
-
-        if (uploadError) {
-          console.error("Error uploading new image:", uploadError)
-          toast({
-            title: "Image upload failed",
-            description: "Your todo was updated, but we couldn't upload the new image.",
-            variant: "destructive",
-          })
-        } else {
-          console.log("New image uploaded successfully")
-          toast({
-            title: "Todo updated",
-            description: "Your todo and image were updated successfully.",
-          })
-        }
-      } else if (imageUrl === null && todo.id) {
-        // User wants to remove the image
-        console.log("Removing existing image")
-        try {
-          const { error: removeError } = await supabase.storage.from("todo-images").remove([todo.id])
-
-          if (removeError) {
-            console.error("Error removing image:", removeError)
-            toast({
-              title: "Image removal failed",
-              description: "Your todo was updated, but we couldn't remove the image.",
-              variant: "destructive",
-            })
-          } else {
-            console.log("Image removed successfully")
-            toast({
-              title: "Todo updated",
-              description: "Your todo was updated and image was removed.",
-            })
-          }
-        } catch (removeError) {
-          console.error("Exception removing image:", removeError)
-        }
       } else {
-        // No image changes
         toast({
           title: "Todo updated",
-          description: "Your changes have been saved.",
+          description: result.message || "Your changes have been saved.",
         })
       }
 
-      // Reset states
       setIsEditing(false)
       setNewImage(null)
       setNewImagePreview(null)
+      setShouldDeleteImage(false)
 
       // Reload the page to reflect all changes
       setTimeout(() => {
@@ -250,28 +217,20 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     setIsLoading(true)
 
     try {
-      // First try to delete the image if it exists
-      try {
-        await supabase.storage.from("todo-images").remove([todo.id])
-        console.log("Image deleted successfully during todo deletion")
-      } catch (storageError) {
-        console.log("No image to delete or error deleting image:", storageError)
-        // Continue with todo deletion even if image deletion fails
+      const formData = new FormData()
+      formData.append("todoId", todo.id)
+
+      const result = await deleteTodoAction(formData)
+
+      if (result.error) {
+        throw new Error(result.error)
       }
 
-      // Delete the todo
-      const { error } = await supabase.from("Todo").delete().eq("id", todo.id)
-
-      if (error) {
-        throw new Error(`Failed to delete todo: ${error.message}`)
-      }
-
-      // Call the onDelete callback to update the parent component's state
       onDelete(todo.id)
 
       toast({
         title: "Todo deleted",
-        description: "The todo has been permanently removed",
+        description: result.message || "The todo has been permanently removed",
       })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred"
@@ -304,15 +263,12 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
     if (!dateString) return "Date not available"
 
     try {
-      // Parse the date string
       const date = new Date(dateString)
 
-      // Check if the date is valid
       if (isNaN(date.getTime())) {
         return "Invalid date"
       }
 
-      // Format the date to YYYY-MM-DD HH:MM:SS
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, "0")
       const day = String(date.getDate()).padStart(2, "0")
@@ -352,8 +308,9 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                 setIsEditing(false)
                 setNewImage(null)
                 setNewImagePreview(null)
+                setShouldDeleteImage(false)
                 setDueDate(todo.due_date ? parseISO(todo.due_date) : null)
-                if (imageUrl === null) {
+                if (imageUrl === null && !shouldDeleteImage) {
                   const fetchImage = async () => {
                     const { data } = await supabase.storage.from("todo-images").createSignedUrl(todo.id, 60 * 60)
                     if (data) {
@@ -369,7 +326,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
             </Button>
           </div>
 
-          <div className="p-4 max-h-[calc(100vh-10rem)] overflow-y-auto">
+          <form ref={formRef} className="p-4 max-h-[calc(100vh-10rem)] overflow-y-auto">
             <div className="space-y-4">
               <div>
                 <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -377,6 +334,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                 </label>
                 <Input
                   id="title"
+                  name="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Todo title"
@@ -390,6 +348,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                 </label>
                 <Textarea
                   id="description"
+                  name="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Description"
@@ -402,7 +361,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                 <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
                   Status
                 </label>
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status} onValueChange={setStatus} name="status">
                   <SelectTrigger id="status" className="w-full">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
@@ -448,9 +407,9 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={handleFileSelect} className="text-xs">
                       <ImagePlus className="h-3.5 w-3.5 mr-1" />
-                      {newImagePreview || imageUrl ? "Change Image" : "Add Image"}
+                      {newImagePreview || (imageUrl && !shouldDeleteImage) ? "Change Image" : "Add Image"}
                     </Button>
-                    {(newImagePreview || imageUrl) && (
+                    {(newImagePreview || (imageUrl && !shouldDeleteImage)) && (
                       <Button type="button" variant="destructive" size="sm" onClick={removeImage} className="text-xs">
                         <X className="h-3.5 w-3.5 mr-1" />
                         Remove
@@ -460,6 +419,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                   <input
                     ref={fileInputRef}
                     type="file"
+                    name="image"
                     accept="image/*"
                     onChange={handleImageChange}
                     className="hidden"
@@ -478,7 +438,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                       New Image
                     </div>
                   </div>
-                ) : imageUrl ? (
+                ) : imageUrl && !shouldDeleteImage ? (
                   <div className="relative aspect-video w-full rounded-md overflow-hidden border">
                     <img src={imageUrl || "/placeholder.svg"} alt={title} className="w-full h-full object-cover" />
                     <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
@@ -501,7 +461,7 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                 <span>Created: {formatCreatedAt(todo.created_at)}</span>
               </div>
             </div>
-          </div>
+          </form>
 
           <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
             <Button
@@ -511,8 +471,9 @@ export default function TodoItem({ todo, onDelete }: { todo: Todo; onDelete: (id
                 setIsEditing(false)
                 setNewImage(null)
                 setNewImagePreview(null)
+                setShouldDeleteImage(false)
                 setDueDate(todo.due_date ? parseISO(todo.due_date) : null)
-                if (imageUrl === null) {
+                if (imageUrl === null && !shouldDeleteImage) {
                   const fetchImage = async () => {
                     const { data } = await supabase.storage.from("todo-images").createSignedUrl(todo.id, 60 * 60)
                     if (data) {
